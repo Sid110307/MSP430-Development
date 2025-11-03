@@ -4,22 +4,22 @@ CCS_INCLUDE := $(CCS_ROOT)/ccs/ccs_base/msp430/include
 CC          := "$(COMPILER)/bin/cl430.exe"
 HEX430      := "$(COMPILER)/bin/hex430.exe"
 FLASHER     := "C:/Progra~1/TI/UniFlash_9.3.0/dslite.bat"
-LINKCMD     := lib/link.cmd
+LINKCMD     := $(CCS_INCLUDE)/lnk_msp430g2553.cmd
 
-SRC_DIR  := src
-BIN_DIR  := bin
-SRCS     := $(wildcard $(SRC_DIR)/*.c)
-OBJS     := $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.obj,$(SRCS))
+SRC_DIR     := src
+BIN_DIR     := bin
+OBJS        := $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/*.c)) \
+               $(patsubst $(SRC_DIR)/lib/basic/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/lib/basic/*.c))
 
-OUT      := $(BIN_DIR)/firmware.out
-HEX      := $(BIN_DIR)/firmware.txt
+OUT         := $(BIN_DIR)/firmware.out
+HEX         := $(BIN_DIR)/firmware.txt
 
-COMMON_FLAGS := \
+CFLAGS := \
     -vmsp \
     --use_hw_mpy=none \
     --advice:power=all \
     -g \
-    -Os \
+    -O4 \
     -D __MSP430G2553__ \
     --printf_support=minimal \
     --code_model=small \
@@ -38,16 +38,18 @@ COMMON_FLAGS := \
 all: $(HEX)
 
 $(BIN_DIR):
-	mkdir $(BIN_DIR)
+	if not exist "$(subst /,\,$(BIN_DIR))" mkdir "$(subst /,\,$(BIN_DIR))"
 
-$(BIN_DIR)/%.obj: $(SRC_DIR)/%.c | $(BIN_DIR)
-	$(CC) $(COMMON_FLAGS) --preproc_with_compile --obj_directory=$(BIN_DIR) --asm_directory=$(BIN_DIR) -c $< -o $@
+vpath %.c $(SRC_DIR) $(SRC_DIR)/lib/basic
+$(BIN_DIR)/%.obj: %.c | $(BIN_DIR)
+	if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
+	$(CC) $(CFLAGS) --preproc_with_compile --obj_directory=$(BIN_DIR) --asm_directory=$(BIN_DIR) -c $< -o $@
 
 $(OUT): $(OBJS) $(LINKCMD)
-	$(CC) $(COMMON_FLAGS) -z --rom_model \
+	$(CC) $(CFLAGS) -z --rom_model \
 		--unused_section_elimination \
 		-m$(BIN_DIR)/firmware.map \
-		--heap_size=64 --stack_size=64 \
+		--heap_size=0 --stack_size=64 \
 		-i$(CCS_INCLUDE) \
 		-i$(COMPILER)/lib \
 		-i$(COMPILER)/include \
@@ -62,4 +64,4 @@ flash: $(OUT)
 	$(FLASHER) --config=lib/MSP430G2553.ccxml --flash --verify $(OUT)
 
 clean:
-	-rm -rf $(BIN_DIR)
+	-if exist "$(subst /,\,$(BIN_DIR))" rmdir /S /Q "$(subst /,\,$(BIN_DIR))"
