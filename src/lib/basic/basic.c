@@ -35,11 +35,9 @@ static void statement();
 peekFunc peekFunction;
 pokeFunc pokeFunction;
 
-extern UartA0 uart;
-
-static char* itoa(const int value, char* buffer)
+static char* itoa(const int value, char* buf)
 {
-	char* p = buffer;
+	char* p = buf;
 	unsigned int u;
 
 	if (value < 0)
@@ -68,10 +66,10 @@ static char* itoa(const int value, char* buffer)
 		*start++ = t;
 	}
 
-	return buffer;
+	return buf;
 }
 
-static void printStr(const char* s) { UartA0_write(&uart, s); }
+static void printStr(const char* s) { UartA0_write(s); }
 
 static void printInt(const int v)
 {

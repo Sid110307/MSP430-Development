@@ -1,110 +1,183 @@
 #include <msp430.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "include/gpio.h"
 #include "include/timer.h"
 #include "include/uart.h"
-#include "include/uart_cli.h"
+#include "lib/basic/basic.h"
 
 static GpioPin led;
-static volatile unsigned int blinkSteps = 0, blinkTick = 0;
 
-static UartA0 uart;
-static UartCli cli;
-static TimerA0 timer;
+static volatile unsigned char cliReady = 0, crlf = 0;
+static volatile unsigned int cliLen = 0;
 
-static void cliHandler(const char* line)
+static char cliLine[CLI_MAX];
+static char basicBuffer[BASIC_BUF_SIZE];
+
+static void cliHandler()
 {
-	UartA0_write(&uart, "\r\nReceived: ");
-	UartA0_write(&uart, line);
-	UartA0_write(&uart, "\r\n");
+	static unsigned int basicLen = 0;
 
-	if (strcmp(line, "hello") == 0) UartA0_write(&uart, "YAYYYYY!!!\r\n");
-	else if (strcmp(line, "exit") == 0)
+	if (strcmp(cliLine, "run") == 0)
 	{
-		UartA0_write(&uart, "byebye :(\r\n");
-		blinkSteps = 6;
-		blinkTick = 0;
-	}
-	else if (strcmp(line, "status") == 0)
-	{
-		UartA0_write(&uart, "LED is ");
-		UartA0_write(&uart, GpioPin_read(&led) ? "ON\r\n" : "OFF\r\n");
-	}
-	else if (strcmp(line, "led on") == 0)
-	{
-		GpioPin_write(&led, 1);
-		UartA0_write(&uart, "LED ON\r\n");
-	}
-	else if (strcmp(line, "led off") == 0)
-	{
-		GpioPin_write(&led, 0);
-		UartA0_write(&uart, "LED OFF\r\n");
-	}
-	else if (strcmp(line, "blink") == 0)
-	{
-		blinkSteps = 6;
-		blinkTick = 0;
-		UartA0_write(&uart, "Blinking 3 times...\r\n");
-	}
-	else if (strncmp(line, "blink ", 6) == 0)
-	{
-		const char* arg = line + 6;
-		const int n = atoi(arg);
+		if (basicLen == 0)
+		{
+			UartA0_writeSync("No program loaded.\r\n");
+			return;
+		}
 
-		if (n <= 0) UartA0_write(&uart, "blink: argument must be > 0\r\n");
+		basicBuffer[basicLen] = '\0';
+		basicInit(basicBuffer);
+		do basicRun(); while (!basicFinished());
+
+		UartA0_writeSync("\r\nProgram finished.\r\n");
+	}
+	else if (strcmp(cliLine, "clear") == 0)
+	{
+		basicLen = 0;
+		basicBuffer[0] = '\0';
+
+		UartA0_writeSync("Program cleared.\r\n");
+	}
+	else if (strcmp(cliLine, "list") == 0)
+	{
+		if (basicLen == 0) UartA0_writeSync("No program loaded.\r\n");
 		else
 		{
-			blinkSteps = (unsigned int)(2 * n);
-			blinkTick = 0;
-
-			UartA0_write(&uart, "Blinking ");
-			UartA0_write(&uart, arg);
-			UartA0_write(&uart, " times...\r\n");
+			UartA0_writeSync(basicBuffer);
+			UartA0_writeSync("\r\n");
 		}
 	}
-	else UartA0_write(&uart, "unknown cmd\r\n");
+	else if (cliLine[0] == '\0') UartA0_writeSync("\r\n");
+	else
+	{
+		const unsigned int len = strlen(cliLine);
+		if (basicLen + len + 2 >= BASIC_BUF_SIZE)
+		{
+			UartA0_writeSync("Program too long.\r\n");
+			return;
+		}
+
+		strcpy(&basicBuffer[basicLen], cliLine);
+		basicLen += len;
+		basicBuffer[basicLen++] = '\n';
+		basicBuffer[basicLen] = '\0';
+
+		UartA0_writeSync("\r\n");
+	}
+}
+
+static void uartRx(const char c)
+{
+	if (cliReady) return;
+	if (c == '\r' || c == '\n')
+	{
+		if (crlf)
+		{
+			crlf = 0;
+			return;
+		}
+
+		crlf = 1;
+		UartA0_write("\r\n");
+		cliLine[cliLen] = '\0';
+		cliReady = 1;
+
+		return;
+	}
+	crlf = 0;
+
+	if (c == 0x08 || c == 0x7F)
+	{
+		if (cliLen)
+		{
+			cliLen--;
+			UartA0_write("\b \b");
+		}
+		return;
+	}
+	if (c >= 32 && c < 127)
+	{
+		if (cliLen + 1 < CLI_MAX)
+		{
+			cliLine[cliLen++] = c;
+			UartA0_write((char[]){c, '\0'});
+		}
+		else UartA0_write("\a");
+	}
 }
 
 static void timerTick()
 {
-	if (blinkSteps > 0 && ++blinkTick >= 10)
-	{
-		blinkTick = 0;
-		GpioPin_toggle(&led);
+	static unsigned char st = 0;
+	static unsigned int rem = 0;
 
-		blinkSteps--;
-		if (blinkSteps == 0) GpioPin_write(&led, 0);
+	if (st == 255) return;
+	if (rem)
+	{
+		rem--;
+		return;
+	}
+
+	switch (st)
+	{
+		case 0: GpioPin_write(&led, 1);
+			rem = 50;
+			st = 1;
+
+			break;
+		case 1: GpioPin_write(&led, 0);
+			rem = 50;
+			st = 2;
+
+			break;
+		case 2: GpioPin_write(&led, 1);
+			rem = 50;
+			st = 3;
+
+			break;
+		case 3:
+		default:
+			GpioPin_write(&led, 0);
+			st = 255;
+
+			break;
 	}
 }
 
 int main()
 {
 	WDTCTL = WDTPW + WDTHOLD;
+	if (CALBC1_1MHZ != 0xFF)
+	{
+		BCSCTL1 = CALBC1_1MHZ;
+		DCOCTL = CALDCO_1MHZ;
+	}
 
 	GpioPin_init(&led, 1, BIT0);
+	GpioPin_useGPIO(&led);
 	GpioPin_setDir(&led, GpioDir_Output);
 	GpioPin_write(&led, 0);
 
-	UartA0_init(&uart);
+	UartA0_init();
+	UartA0_setCallback(uartRx);
+	UartA0_write("MSP430 BASIC ready\r\n> ");
 
-	UartCli_init(&cli, &uart);
-	UartCli_setLineHandler(&cli, &cliHandler);
-	UartA0_write(&uart, "MSP430 CLI ready\r\n");
+	TimerA0_init(10000, ID_0, &timerTick);
+	TimerA0_start();
 
-	TimerA0_init(&timer, 10000, ID_0, &timerTick);
+	__enable_interrupt();
+	while (1)
+	{
+		__bis_SR_register(LPM0_bits | GIE);
 
-	__bis_SR_register(LPM0_bits | GIE);
-	while (1);
+		if (cliReady)
+		{
+			cliReady = 0;
+			cliLen = 0;
+			cliHandler();
+
+			UartA0_write("> ");
+		}
+	}
 }
-
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void TIMER0_A0_ISR()
-{
-	TA0CCTL0 &= ~CCIFG;
-	TimerA0_handleInterrupt(&timer);
-}
-
-#pragma vector = USCIAB0RX_VECTOR
-__interrupt void USCIAB0RX_ISR() { if (IFG2 & UCA0RXIFG) UartA0_handleInterrupt(&uart, (char)UCA0RXBUF); }

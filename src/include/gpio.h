@@ -1,8 +1,5 @@
 #pragma once
 
-#include <msp430.h>
-#include <stdint.h>
-
 typedef enum
 {
 	GpioDir_Input  = 0,
@@ -18,53 +15,21 @@ typedef enum
 
 typedef struct
 {
-	uint8_t port, bit;
+	volatile unsigned char* GpioDir;
+	volatile unsigned char* GpioOut;
+	volatile const unsigned char* GpioIn;
+	volatile unsigned char* GpioRen;
+#if defined(P1SEL) && defined(P1SEL2)
+	volatile unsigned char* GpioSel;
+	volatile unsigned char* GpioSel2;
+#endif
+	unsigned char bit;
 } GpioPin;
 
-static void GpioPin_init(GpioPin* self, const uint8_t port, const uint8_t bit)
-{
-	self->port = port;
-	self->bit = bit;
-}
-
-static void GpioPin_setDir(const GpioPin* self, const GpioDir dir)
-{
-	volatile uint8_t* dirReg = self->port == 1 ? &P1DIR : &P2DIR;
-
-	if (dir == GpioDir_Output) *dirReg |= self->bit;
-	else *dirReg &= (uint8_t)~self->bit;
-}
-
-static void GpioPin_write(const GpioPin* self, const uint8_t high)
-{
-	volatile uint8_t* outReg = self->port == 1 ? &P1OUT : &P2OUT;
-
-	if (high) *outReg |= self->bit;
-	else *outReg &= (uint8_t)~self->bit;
-}
-
-static void GpioPin_toggle(const GpioPin* self)
-{
-	volatile uint8_t* outReg = self->port == 1 ? &P1OUT : &P2OUT;
-	*outReg ^= self->bit;
-}
-
-static uint8_t GpioPin_read(const GpioPin* self)
-{
-	const volatile uint8_t* inReg = self->port == 1 ? &P1IN : &P2IN;
-	return (*inReg & self->bit) != 0;
-}
-
-static void GpioPin_setPull(const GpioPin* self, const GpioPull pull)
-{
-	volatile uint8_t *renReg = self->port == 1 ? &P1REN : &P2REN, *outReg = self->port == 1 ? &P1OUT : &P2OUT;
-
-	if (pull == GpioPull_None) *renReg &= (uint8_t)~self->bit;
-	else
-	{
-		*renReg |= self->bit;
-
-		if (pull == GpioPull_Up) *outReg |= self->bit;
-		else *outReg &= (uint8_t)~self->bit;
-	}
-}
+int GpioPin_init(GpioPin* pin, unsigned char port, unsigned char bit);
+void GpioPin_useGPIO(GpioPin* pin);
+void GpioPin_setDir(const GpioPin* pin, GpioDir dir);
+void GpioPin_write(const GpioPin* pin, unsigned char high);
+void GpioPin_toggle(const GpioPin* pin);
+unsigned char GpioPin_read(const GpioPin* pin);
+void GpioPin_setPull(const GpioPin* pin, GpioPull pull);
