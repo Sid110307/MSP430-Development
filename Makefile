@@ -1,12 +1,10 @@
 CCS_ROOT    := C:/Progra~1/TI/CCS2031
 COMPILER    := $(CCS_ROOT)/ccs/tools/compiler/ti-cgt-msp430_21.6.1.LTS
 CCS_INCLUDE := $(CCS_ROOT)/ccs/ccs_base/msp430/include
-CL430       := "$(COMPILER)/bin/cl430.exe"
+CC          := "$(COMPILER)/bin/cl430.exe"
 HEX430      := "$(COMPILER)/bin/hex430.exe"
 FLASHER     := "C:/Progra~1/TI/UniFlash_9.3.0/dslite.bat"
-
-VARIANT  := MSP430G2553
-LINKCMD  := lib/link.cmd
+LINKCMD     := lib/link.cmd
 
 SRC_DIR  := src
 BIN_DIR  := bin
@@ -20,9 +18,9 @@ COMMON_FLAGS := \
     -vmsp \
     --use_hw_mpy=none \
     --advice:power=all \
-    --define=__$(VARIANT)__ \
     -g \
     -Os \
+    -D __MSP430G2553__ \
     --printf_support=minimal \
     --code_model=small \
     --data_model=small \
@@ -43,10 +41,10 @@ $(BIN_DIR):
 	mkdir $(BIN_DIR)
 
 $(BIN_DIR)/%.obj: $(SRC_DIR)/%.c | $(BIN_DIR)
-	$(CL430) $(COMMON_FLAGS) --preproc_with_compile --obj_directory=$(BIN_DIR) $<
+	$(CC) $(COMMON_FLAGS) --preproc_with_compile --obj_directory=$(BIN_DIR) --asm_directory=$(BIN_DIR) -c $< -o $@
 
 $(OUT): $(OBJS) $(LINKCMD)
-	$(CL430) $(COMMON_FLAGS) -z --rom_model \
+	$(CC) $(COMMON_FLAGS) -z --rom_model \
 		--unused_section_elimination \
 		-m$(BIN_DIR)/firmware.map \
 		--heap_size=64 --stack_size=64 \
@@ -61,7 +59,7 @@ $(HEX): $(OUT)
 	$(HEX430) --memwidth=8 --romwidth=8 --diag_wrap=off --ti_txt -o $(HEX) $(OUT)
 
 flash: $(OUT)
-	$(FLASHER) --config=lib/$(VARIANT).ccxml --flash --verify $(OUT)
+	$(FLASHER) --config=lib/MSP430G2553.ccxml --flash --verify $(OUT)
 
 clean:
 	-rm -rf $(BIN_DIR)

@@ -3,36 +3,18 @@
 #include <msp430.h>
 #include <stdint.h>
 
-#include "base.h"
-
-namespace MSP
+typedef struct
 {
-	class TimerA0 : public NonCopyable
-	{
-	public:
-		static TimerA0& instance()
-		{
-			static TimerA0 timer;
-			return timer;
-		}
+	void (*callback)();
+} TimerA0;
 
-		void init(uint16_t periodTicks, void (*callback)() = 0, uint16_t mode = MC_1)
-		{
-			callback_ = callback;
-
-			TA0CCR0 = periodTicks - 1;
-			TA0CCTL0 = CCIE;
-			TA0CTL = TASSEL_2 | ID_0 | mode;
-		}
-
-		void setCallback(void (*callback)()) { callback_ = callback; }
-
-		void handleInterrupt() { if (callback_) callback_(); }
-
-	private:
-		TimerA0() : callback_(0)
-		{
-		};
-		void (*callback_)();
-	};
+static void TimerA0_init(TimerA0* self, const uint16_t periodTicks, const uint16_t divider, void (*callback)())
+{
+	self->callback = callback;
+	TA0CCR0 = periodTicks - 1;
+	TA0CCTL0 = CCIE;
+	TA0CTL = TASSEL_2 | divider | MC_1;
 }
+
+static void TimerA0_setCallback(TimerA0* self, void (*callback)()) { self->callback = callback; }
+static void TimerA0_handleInterrupt(const TimerA0* self) { if (self->callback) self->callback(); }

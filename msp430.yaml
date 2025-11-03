@@ -7,7 +7,7 @@ compilers:
     include-dirs:
       - "${compiler-exe-dir}/../include/libcxx"
       - "${compiler-exe-dir}/../include"
-      - "${compiler-exe-dir}/../../ccs_base/msp430/include"
+      - "${compiler-exe-dir}/../../../../ccs_base/msp430/include"
     defines:
       _DATA_ACCESS:
     defines-text: "
@@ -64,13 +64,14 @@ compilers:
 #define __SIZEOF_PTRDIFF_T__ 2	
 #define _OPTIMIZE_FOR_SPACE 1
 #define _INLINE 1
+#define __interrupt
 "
   - description: Cpp14 TI CGT MSP430 v21
     match-sources: ".*\\.cpp"
     match-language: CPP
     match-compiler-exe: "(.*/)?cl430(\\.exe)?"
     code-insight-target-name: msp430
-    include-dirs: [ "${compiler-exe-dir}/../include/libcxx","${compiler-exe-dir}/../include", "${compiler-exe-dir}/../../ccs_base/msp430/include" ]
+    include-dirs: [ "${compiler-exe-dir}/../include/libcxx","${compiler-exe-dir}/../include", "${compiler-exe-dir}/../../../../ccs_base/msp430/include" ]
     defines:
       _DATA_ACCESS:
     defines-text: "
@@ -163,4 +164,5 @@ compilers:
 #define __SIZEOF_PTRDIFF_T__ 2	
 #define _OPTIMIZE_FOR_SPACE 1
 #define _INLINE 1
+#define __interrupt
 "
