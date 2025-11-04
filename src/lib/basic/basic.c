@@ -29,9 +29,6 @@ static int expr();
 static void lineStatement();
 static void statement();
 
-peekFunc peekFunction;
-pokeFunc pokeFunction;
-
 static char* itoa(const int value, char* buf)
 {
 	char* p = buf;
@@ -89,22 +86,6 @@ void basicInit(const char* program)
 	forStackPtr = 0;
 
 	lineIndexCount = 0;
-	tokenizerInit(program);
-	ended = 0;
-
-	peekFunction = (void*)0;
-	pokeFunction = (void*)0;
-}
-
-void basicInitPeekPoke(const char* program, const peekFunc peek, const pokeFunc poke)
-{
-	programPtr = program;
-	forStackPtr = 0;
-
-	lineIndexCount = 0;
-	peekFunction = peek;
-	pokeFunction = poke;
-
 	tokenizerInit(program);
 	ended = 0;
 }
@@ -386,29 +367,6 @@ static void forStatement()
 	}
 }
 
-static void peekStatement()
-{
-	accept(TOKEN_PEEK);
-	const char peekAddr = (char)expr();
-	accept(TOKEN_COMMA);
-	const int var = tokenizerVariableNum();
-	accept(TOKEN_VARIABLE);
-	accept(TOKEN_CR);
-
-	if (peekFunction) basicSetVariable(var, peekFunction(peekAddr));
-}
-
-static void pokeStatement()
-{
-	accept(TOKEN_POKE);
-	const char pokeAddr = (char)expr();
-	accept(TOKEN_COMMA);
-	const char value = (char)expr();
-	accept(TOKEN_CR);
-
-	if (pokeFunction) pokeFunction(pokeAddr, value);
-}
-
 static void endStatement()
 {
 	accept(TOKEN_END);
@@ -431,12 +389,6 @@ static void statement()
 			break;
 		case TOKEN_FOR:
 			forStatement();
-			break;
-		case TOKEN_PEEK:
-			peekStatement();
-			break;
-		case TOKEN_POKE:
-			pokeStatement();
 			break;
 		case TOKEN_NEXT:
 			nextStatement();
@@ -463,7 +415,9 @@ static void lineStatement()
 
 void basicRun()
 {
+	while (tokenizerToken() == TOKEN_CR) tokenizerNext();
 	if (tokenizerFinished()) return;
+
 	lineStatement();
 }
 

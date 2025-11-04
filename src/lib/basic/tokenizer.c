@@ -1,5 +1,5 @@
+#include <ctype.h>
 #include "tokenizer.h"
-#include <string.h>
 
 #define MAX_NUM_LEN 5
 static const char *ptr, *nextPtr;
@@ -25,8 +25,6 @@ static const struct KeywordToken keywords[] = {
 	KW("next", TOKEN_NEXT),
 	KW("goto", TOKEN_GOTO),
 	KW("rem", TOKEN_REM),
-	KW("peek", TOKEN_PEEK),
-	KW("poke", TOKEN_POKE),
 	KW("end", TOKEN_END),
 	{0, TOKEN_ERROR, 0}
 };
@@ -34,7 +32,23 @@ static const struct KeywordToken keywords[] = {
 #define KEYWORD_COUNT ((unsigned int)(sizeof(keywords)/sizeof(keywords[0]) - 1))
 
 static int isDigit(const unsigned char c) { return c >= '0' && c <= '9'; }
-static int isLower(const unsigned char c) { return c >= 'a' && c <= 'z'; }
+static int isLetter(const unsigned char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+
+static int strcmpLower(const char* s1, const char* s2, unsigned int n)
+{
+	while (n--)
+	{
+		unsigned char c1 = *s1++;
+		unsigned char c2 = *s2++;
+
+		c1 = (unsigned char)tolower(c1);
+		c2 = (unsigned char)tolower(c2);
+
+		if (c1 != c2) return c1 - c2;
+		if (c1 == '\0') break;
+	}
+	return 0;
+}
 
 static int singleChar()
 {
@@ -79,6 +93,13 @@ static int singleChar()
 static int getNextToken()
 {
 	if (*ptr == 0) return TOKEN_EOL;
+	if (*ptr == '\r' || *ptr == '\n')
+	{
+		if (*ptr == '\r' && ptr[1] == '\n') nextPtr = ptr + 2;
+		else nextPtr = ptr + 1;
+
+		return TOKEN_CR;
+	}
 
 	if (isDigit(*ptr))
 	{
@@ -120,10 +141,10 @@ static int getNextToken()
 	unsigned int remaining = KEYWORD_COUNT;
 	while (remaining--)
 	{
-		if (strncmp(ptr, keywordToken->keyword, keywordToken->len) == 0)
+		if (strcmpLower(ptr, keywordToken->keyword, keywordToken->len) == 0)
 		{
 			const char next = ptr[keywordToken->len];
-			if (!isLower(next) && !isDigit(next))
+			if (!isLetter(next) && !isDigit(next))
 			{
 				nextPtr = ptr + keywordToken->len;
 				return keywordToken->token;
@@ -132,7 +153,7 @@ static int getNextToken()
 		++keywordToken;
 	}
 
-	if (isLower(*ptr))
+	if (isLetter(*ptr))
 	{
 		nextPtr = ptr + 1;
 		return TOKEN_VARIABLE;
@@ -215,7 +236,10 @@ void tokenizerString(char* dest, const int len)
 
 int tokenizerVariableNum()
 {
-	const int v = *ptr - 'a';
+	char c = *ptr;
+	if (c >= 'A' && c <= 'Z') c = (char)(c + ('a' - 'A'));
+
+	const int v = c - 'a';
 	return v >= 0 && v < 26 ? v : -1;
 }
 
