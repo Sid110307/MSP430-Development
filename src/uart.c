@@ -3,37 +3,36 @@
 
 static volatile UartRxCallback rxCallback = 0;
 
-static void txPutChar(const char c)
-{
-	while (!(IFG2 & UCA0TXIFG));
-	UCA0TXBUF = c;
-}
-
 void UartA0_init()
 {
 	P1SEL |= BIT1 | BIT2;
 	P1SEL2 |= BIT1 | BIT2;
 
 	UCA0CTL1 |= UCSWRST;
-	UCA0CTL0 = 0;
-	UCA0CTL1 = UCA0CTL1 | UCSSEL_2;
+	UCA0CTL1 |= UCSSEL_2;
 
 	UCA0BR0 = 104;
 	UCA0BR1 = 0;
 	UCA0MCTL = UCBRS_1;
 
 	IFG2 &= ~(UCA0TXIFG | UCA0RXIFG);
-	// IE2 |= UCA0RXIE;
 	UCA0CTL1 &= ~UCSWRST;
+	UC0IE |= UCA0RXIE;
 }
 
 void UartA0_setCallback(const UartRxCallback cb) { rxCallback = cb; }
 unsigned char UartA0_busy() { return UCA0STAT & UCBUSY; }
 
+void UartA0_writeChar(char c)
+{
+	while (!(IFG2 & UCA0TXIFG));
+	UCA0TXBUF = c;
+}
+
 void UartA0_write(const char* str)
 {
 	if (!str) return;
-	while (*str) txPutChar(*str++);
+	while (*str) UartA0_writeChar(*str++);
 }
 
 void UartA0_writeSync(const char* str)

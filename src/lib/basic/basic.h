@@ -8,6 +8,7 @@
 
 void basicInit(const char* program);
 void basicRun();
+void basicList();
 int basicFinished();
 
 char basicGetVariable(unsigned int varNum);

@@ -8,7 +8,7 @@
 
 static GpioPin led;
 
-static volatile unsigned char cliReady = 0, crlf = 0;
+static volatile unsigned char cliReady = 0;
 static volatile unsigned int cliLen = 0;
 
 static char cliLine[CLI_MAX];
@@ -42,11 +42,7 @@ static void cliHandler()
 	else if (strcmp(cliLine, "list") == 0)
 	{
 		if (basicLen == 0) UartA0_writeSync("No program loaded.\r\n");
-		else
-		{
-			UartA0_writeSync(basicBuffer);
-			UartA0_writeSync("\r\n");
-		}
+		else basicList();
 	}
 	else if (cliLine[0] == '\0') UartA0_writeSync("\r\n");
 	else
@@ -60,15 +56,17 @@ static void cliHandler()
 
 		strcpy(&basicBuffer[basicLen], cliLine);
 		basicLen += len;
+
+		basicBuffer[basicLen++] = '\r';
 		basicBuffer[basicLen++] = '\n';
 		basicBuffer[basicLen] = '\0';
-
-		UartA0_writeSync("\r\n");
 	}
 }
 
 static void uartRx(const char c)
 {
+	static volatile unsigned char crlf = 0;
+
 	if (cliReady) return;
 	if (c == '\r' || c == '\n')
 	{
@@ -79,7 +77,6 @@ static void uartRx(const char c)
 		}
 
 		crlf = 1;
-		UartA0_write("\r\n");
 		cliLine[cliLen] = '\0';
 		cliReady = 1;
 
@@ -89,22 +86,10 @@ static void uartRx(const char c)
 
 	if (c == 0x08 || c == 0x7F)
 	{
-		if (cliLen)
-		{
-			cliLen--;
-			UartA0_write("\b \b");
-		}
+		if (cliLen) cliLen--;
 		return;
 	}
-	if (c >= 32 && c < 127)
-	{
-		if (cliLen + 1 < CLI_MAX)
-		{
-			cliLine[cliLen++] = c;
-			UartA0_write((char[]){c, '\0'});
-		}
-		else UartA0_write("\a");
-	}
+	if (c >= 32 && c < 127 && cliLen + 1 < CLI_MAX) cliLine[cliLen++] = c;
 }
 
 static void timerTick()
@@ -166,18 +151,38 @@ int main()
 	TimerA0_init(125, ID_3, &timerTick);
 	TimerA0_start();
 
+	static volatile unsigned int cliPrinted = 0;
 	__enable_interrupt();
+
 	while (1)
 	{
 		__bis_SR_register(LPM0_bits | GIE);
-		while (IFG2 & UCA0RXIFG) uartRx((char)UCA0RXBUF);
+		while (cliPrinted > cliLen)
+		{
+			UartA0_write("\b \b");
+			cliPrinted--;
+		}
+
+		if (cliPrinted < cliLen)
+		{
+			unsigned int i = cliLen;
+			while (i > cliPrinted)
+			{
+				i--;
+				UartA0_writeChar(cliLine[i]);
+			}
+
+			cliPrinted = cliLen;
+		}
 
 		if (cliReady)
 		{
-			cliReady = 0;
-			cliLen = 0;
+			UartA0_write("\r\n");
 			cliHandler();
 
+			cliReady = 0;
+			cliLen = 0;
+			cliPrinted = 0;
 			UartA0_write("> ");
 		}
 	}

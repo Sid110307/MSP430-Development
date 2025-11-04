@@ -23,7 +23,7 @@ static struct LineIndexEntry lineIndexArr[MAX_LINE_INDEX];
 static unsigned int lineIndexCount;
 
 static unsigned char variables[MAX_VAR_NUM];
-static int ended;
+static int ended, didJump = 0;
 
 static int expr();
 static void lineStatement();
@@ -63,6 +63,58 @@ static char* itoa(const int value, char* buf)
 	return buf;
 }
 
+static const char* indexFind(const int lineNum)
+{
+	unsigned int i = lineIndexCount;
+	while (i--) if (lineIndexArr[i].lineNumber == lineNum) return lineIndexArr[i].programTextPos;
+
+	return (void*)0;
+}
+
+static void indexAdd(const int lineNum, const char* sourcePos)
+{
+	unsigned int n = lineIndexCount;
+	while (n--)
+		if (lineIndexArr[n].lineNumber == lineNum)
+		{
+			lineIndexArr[n].programTextPos = sourcePos;
+			return;
+		}
+
+	if (lineIndexCount < MAX_LINE_INDEX)
+	{
+		lineIndexArr[lineIndexCount].lineNumber = lineNum;
+		lineIndexArr[lineIndexCount].programTextPos = sourcePos;
+		++lineIndexCount;
+	}
+}
+
+static int nextLineAfter(int curr, const char** outPos)
+{
+	int found = 0;
+	int best = 0x7FFF;
+	const char* bestPos = 0;
+
+	unsigned int i = lineIndexCount;
+	while (i--)
+	{
+		const int n = lineIndexArr[i].lineNumber;
+		if (n > curr && (!found || n < best))
+		{
+			found = 1;
+			best = n;
+			bestPos = lineIndexArr[i].programTextPos;
+		}
+	}
+
+	if (found)
+	{
+		if (outPos) *outPos = bestPos;
+		return best;
+	}
+	return -1;
+}
+
 static void printStr(const char* s) { UartA0_write(s); }
 
 static void printInt(const int v)
@@ -88,6 +140,32 @@ void basicInit(const char* program)
 	lineIndexCount = 0;
 	tokenizerInit(program);
 	ended = 0;
+
+	while (!tokenizerFinished())
+	{
+		while (tokenizerToken() == TOKEN_CR) tokenizerNext();
+		if (tokenizerFinished()) break;
+
+		if (tokenizerToken() != TOKEN_NUMBER)
+		{
+			tokenizerNext();
+			continue;
+		}
+
+		const int lineNum = tokenizerNum();
+		const char* linePos = tokenizerPos();
+		indexAdd(lineNum, linePos);
+
+		do tokenizerNext();
+		while (tokenizerToken() != TOKEN_CR && tokenizerToken() != TOKEN_EOL && !tokenizerFinished());
+		if (tokenizerToken() == TOKEN_CR) tokenizerNext();
+	}
+
+	const char* firstPos = 0;
+	const int first = nextLineAfter(-32768, &firstPos);
+
+	if (first >= 0 && firstPos) tokenizerGoto(firstPos);
+	else ended = 1;
 }
 
 static void accept(const int token)
@@ -218,49 +296,16 @@ static int relation()
 	return r1;
 }
 
-static const char* indexFind(const int lineNum)
-{
-	unsigned int i = lineIndexCount;
-	while (i--) if (lineIndexArr[i].lineNumber == lineNum) return lineIndexArr[i].programTextPos;
-
-	return (void*)0;
-}
-
-static void indexAdd(const int lineNum, const char* sourcePos)
-{
-	unsigned int n = lineIndexCount;
-	while (n--) if (lineIndexArr[n].lineNumber == lineNum) return;
-
-	if (lineIndexCount < MAX_LINE_INDEX)
-	{
-		lineIndexArr[lineIndexCount].lineNumber = lineNum;
-		lineIndexArr[lineIndexCount].programTextPos = sourcePos;
-		++lineIndexCount;
-	}
-}
-
-static void jumpLineNumSlow(const int lineNum)
-{
-	tokenizerInit(programPtr);
-	while (tokenizerNum() != lineNum)
-	{
-		do
-		{
-			do tokenizerNext();
-			while (tokenizerToken() != TOKEN_CR && tokenizerToken() != TOKEN_EOL);
-			if (tokenizerToken() == TOKEN_CR) tokenizerNext();
-		}
-		while (tokenizerToken() != TOKEN_NUMBER && !tokenizerFinished());
-		if (tokenizerFinished()) return;
-	}
-}
-
 static void jumpLineNum(const int lineNum)
 {
 	const char* pos = indexFind(lineNum);
 
-	if (pos) tokenizerGoto(pos);
-	else jumpLineNumSlow(lineNum);
+	if (pos)
+	{
+		tokenizerGoto(pos);
+		didJump = 1;
+	}
+	else basicAbort();
 }
 
 static void gotoStatement()
@@ -406,9 +451,25 @@ static void statement()
 	}
 }
 
+static void skipToEol(void)
+{
+	do tokenizerNext();
+	while (tokenizerToken() != TOKEN_CR && tokenizerToken() != TOKEN_EOL && !tokenizerFinished());
+
+	if (tokenizerToken() == TOKEN_CR) tokenizerNext();
+}
+
 static void lineStatement()
 {
-	indexAdd(tokenizerNum(), tokenizerPos());
+	const int ln = tokenizerNum();
+	const char* pos = tokenizerPos();
+
+	if (indexFind(ln) != pos)
+	{
+		skipToEol();
+		return;
+	}
+
 	accept(TOKEN_NUMBER);
 	statement();
 }
@@ -418,7 +479,55 @@ void basicRun()
 	while (tokenizerToken() == TOKEN_CR) tokenizerNext();
 	if (tokenizerFinished()) return;
 
+	const int currLine = tokenizerNum();
+	didJump = 0;
 	lineStatement();
+
+	if (ended) return;
+	if (!didJump)
+	{
+		const char* nextPos = 0;
+		const int nextLine = nextLineAfter(currLine, &nextPos);
+
+		if (nextLine >= 0 && nextPos) tokenizerGoto(nextPos);
+		else ended = 1;
+	}
+}
+
+void basicList()
+{
+	tokenizerInit(programPtr);
+	while (!tokenizerFinished())
+	{
+		while (tokenizerToken() == TOKEN_CR) tokenizerNext();
+		if (tokenizerFinished()) break;
+
+		if (tokenizerToken() != TOKEN_NUMBER)
+		{
+			tokenizerNext();
+			continue;
+		}
+
+		const int ln = tokenizerNum();
+		const char* pos = tokenizerPos();
+
+		if (indexFind(ln) == pos)
+		{
+			printInt(ln);
+			printStr(" ");
+
+			tokenizerNext();
+			const char* p = pos;
+			while ((*p >= '0' && *p <= '9') || *p == ' ') ++p;
+
+			while (*p && *p != '\r' && *p != '\n') UartA0_writeChar(*p++);
+			printStr("\r\n");
+		}
+
+		do tokenizerNext();
+		while (tokenizerToken() != TOKEN_CR && tokenizerToken() != TOKEN_EOL && !tokenizerFinished());
+		if (tokenizerToken() == TOKEN_CR) tokenizerNext();
+	}
 }
 
 int basicFinished() { return ended || tokenizerFinished(); }
