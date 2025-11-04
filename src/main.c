@@ -122,17 +122,17 @@ static void timerTick()
 	switch (st)
 	{
 		case 0: GpioPin_write(&led, 1);
-			rem = 50;
+			rem = 500;
 			st = 1;
 
 			break;
 		case 1: GpioPin_write(&led, 0);
-			rem = 50;
+			rem = 500;
 			st = 2;
 
 			break;
 		case 2: GpioPin_write(&led, 1);
-			rem = 50;
+			rem = 500;
 			st = 3;
 
 			break;
@@ -163,13 +163,14 @@ int main()
 	UartA0_setCallback(uartRx);
 	UartA0_write("MSP430 BASIC ready\r\n> ");
 
-	TimerA0_init(10000, ID_0, &timerTick);
+	TimerA0_init(125, ID_3, &timerTick);
 	TimerA0_start();
 
 	__enable_interrupt();
 	while (1)
 	{
 		__bis_SR_register(LPM0_bits | GIE);
+		while (IFG2 & UCA0RXIFG) uartRx((char)UCA0RXBUF);
 
 		if (cliReady)
 		{

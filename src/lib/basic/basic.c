@@ -16,9 +16,6 @@ struct LineIndexEntry
 static const char* programPtr;
 static char buffer[CLI_MAX];
 
-static int gosubStack[MAX_GOSUB_STACK_DEPTH];
-static unsigned int gosubStackPtr;
-
 static struct ForState forStack[MAX_FOR_STACK_DEPTH];
 static unsigned int forStackPtr;
 
@@ -89,7 +86,7 @@ static void basicAbort()
 void basicInit(const char* program)
 {
 	programPtr = program;
-	forStackPtr = gosubStackPtr = 0;
+	forStackPtr = 0;
 
 	lineIndexCount = 0;
 	tokenizerInit(program);
@@ -102,7 +99,7 @@ void basicInit(const char* program)
 void basicInitPeekPoke(const char* program, const peekFunc peek, const pokeFunc poke)
 {
 	programPtr = program;
-	forStackPtr = gosubStackPtr = 0;
+	forStackPtr = 0;
 
 	lineIndexCount = 0;
 	peekFunction = peek;
@@ -350,31 +347,6 @@ static void letStatement()
 	accept(TOKEN_CR);
 }
 
-static void gosubStatement()
-{
-	accept(TOKEN_GOSUB);
-	const int lineNum = tokenizerNum();
-	accept(TOKEN_NUMBER);
-	accept(TOKEN_CR);
-
-	if (gosubStackPtr < MAX_GOSUB_STACK_DEPTH)
-	{
-		gosubStack[gosubStackPtr] = tokenizerNum();
-		gosubStackPtr++;
-		jumpLineNum(lineNum);
-	}
-}
-
-static void returnStatement()
-{
-	accept(TOKEN_RETURN);
-	if (gosubStackPtr > 0)
-	{
-		gosubStackPtr--;
-		jumpLineNum(gosubStack[gosubStackPtr]);
-	}
-}
-
 static void nextStatement()
 {
 	accept(TOKEN_NEXT);
@@ -456,12 +428,6 @@ static void statement()
 			break;
 		case TOKEN_GOTO:
 			gotoStatement();
-			break;
-		case TOKEN_GOSUB:
-			gosubStatement();
-			break;
-		case TOKEN_RETURN:
-			returnStatement();
 			break;
 		case TOKEN_FOR:
 			forStatement();

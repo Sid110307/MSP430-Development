@@ -44,4 +44,6 @@ __interrupt void TIMER0_A0_ISR()
 {
 	TA0CCTL0 &= ~CCIFG;
 	if (timerCallback) timerCallback();
+
+	__bic_SR_register_on_exit(LPM0_bits);
 }

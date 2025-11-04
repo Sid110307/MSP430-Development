@@ -49,7 +49,7 @@ $(OUT): $(OBJS) $(LINKCMD)
 	$(CC) $(CFLAGS) -z --rom_model \
 		--unused_section_elimination \
 		-m$(BIN_DIR)/firmware.map \
-		--heap_size=0 --stack_size=64 \
+		--heap_size=0 --stack_size=48 \
 		-i$(CCS_INCLUDE) \
 		-i$(COMPILER)/lib \
 		-i$(COMPILER)/include \

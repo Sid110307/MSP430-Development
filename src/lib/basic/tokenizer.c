@@ -24,9 +24,6 @@ static const struct KeywordToken keywords[] = {
 	KW("to", TOKEN_TO),
 	KW("next", TOKEN_NEXT),
 	KW("goto", TOKEN_GOTO),
-	KW("gosub", TOKEN_GOSUB),
-	KW("return", TOKEN_RETURN),
-	KW("call", TOKEN_CALL),
 	KW("rem", TOKEN_REM),
 	KW("peek", TOKEN_PEEK),
 	KW("poke", TOKEN_POKE),
@@ -66,8 +63,6 @@ static int singleChar()
 			return TOKEN_MOD;
 		case '(':
 			return TOKEN_LEFTPAREN;
-		case '#':
-			return TOKEN_HASH;
 		case ')':
 			return TOKEN_RIGHTPAREN;
 		case '<':

@@ -1,12 +1,5 @@
 #pragma once
 
-#ifndef TX_BUF_SIZE
-#define TX_BUF_SIZE 128u
-#endif
-#if (TX_BUF_SIZE & (TX_BUF_SIZE - 1)) != 0
-#error "TX_BUF_SIZE must be a power of two."
-#endif
-
 typedef void (*UartRxCallback)(char);
 
 void UartA0_init();
