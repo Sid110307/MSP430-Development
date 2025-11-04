@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include "tokenizer.h"
 
 #define MAX_NUM_LEN 5
@@ -13,6 +12,7 @@ struct KeywordToken
 
 static int currentToken = TOKEN_ERROR;
 #define KW(s, tok) { (s), (tok), (unsigned int)(sizeof(s) - 1) }
+#define LOWER(c) (c >= 'A' && c <= 'Z' ? (c + ('a' - 'A')) : c)
 
 static const struct KeywordToken keywords[] = {
 	KW("let", TOKEN_LET),
@@ -41,8 +41,8 @@ static int strcmpLower(const char* s1, const char* s2, unsigned int n)
 		unsigned char c1 = *s1++;
 		unsigned char c2 = *s2++;
 
-		c1 = (unsigned char)tolower(c1);
-		c2 = (unsigned char)tolower(c2);
+		c1 = (unsigned char)LOWER(c1);
+		c2 = (unsigned char)LOWER(c2);
 
 		if (c1 != c2) return c1 - c2;
 		if (c1 == '\0') break;
