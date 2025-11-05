@@ -16,7 +16,7 @@ struct LineIndexEntry
 };
 
 static const char* programPtr;
-static char buffer[CLI_MAX];
+static char printBuffer[PRINT_BUF_SIZE];
 
 static char basicBuffer[BASIC_BUF_SIZE];
 static unsigned int basicBufferLen = 0;
@@ -341,8 +341,8 @@ static void printStatement()
 	{
 		if (tokenizerToken() == TOKEN_STRING)
 		{
-			tokenizerString(buffer, sizeof(buffer));
-			printStr(buffer);
+			tokenizerString(printBuffer, sizeof(printBuffer));
+			printStr(printBuffer);
 			tokenizerNext();
 		}
 		else if (tokenizerToken() == TOKEN_COMMA)

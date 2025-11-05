@@ -1,6 +1,6 @@
 #pragma once
 
-#define CLI_MAX 32
+#define PRINT_BUF_SIZE 32
 #define BASIC_BUF_SIZE 256
 #define MAX_LINE_INDEX 6
 #define MAX_FOR_STACK_DEPTH 3

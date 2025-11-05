@@ -3,7 +3,10 @@
 #include "include/gpio.h"
 #include "include/timer.h"
 #include "include/uart.h"
-#include "lib/basic/basic.h"
+
+// #include "lib/basic/basic.h"
+
+#define CLI_MAX 32
 
 static GpioPin led;
 
@@ -42,38 +45,42 @@ static void uartRx(const char c)
 
 static void timerTick()
 {
-	static unsigned char st = 0;
-	static unsigned int rem = 0;
+	static const unsigned int onTime = 500, offTime = 500, numTimes = 3;
+	static unsigned char state = 0;
+	static unsigned int rem = 0, count = 0;
 
-	if (st == 255) return;
+	if (state == 255) return;
 	if (rem)
 	{
 		rem--;
 		return;
 	}
 
-	switch (st)
+	switch (state)
 	{
-		case 0: GpioPin_write(&led, 1);
-			rem = 500;
-			st = 1;
+		case 0:
+			if (count >= numTimes)
+			{
+				GpioPin_write(&led, 0);
+				state = 255;
+
+				return;
+			}
+
+			GpioPin_write(&led, 1);
+			rem = onTime;
+			state = 1;
 
 			break;
-		case 1: GpioPin_write(&led, 0);
-			rem = 500;
-			st = 2;
-
-			break;
-		case 2: GpioPin_write(&led, 1);
-			rem = 500;
-			st = 3;
-
-			break;
-		case 3:
-		default:
+		case 1:
 			GpioPin_write(&led, 0);
-			st = 255;
+			rem = offTime;
+			state = 0;
+			count++;
 
+			break;
+		default:
+			state = 255;
 			break;
 	}
 }
@@ -94,7 +101,7 @@ int main()
 
 	UartA0_init();
 	UartA0_setCallback(uartRx);
-	UartA0_write("MSP430 BASIC ready\r\n> ");
+	UartA0_write("MSP430 Ready!\r\n");
 
 	TimerA0_init(125, ID_3, &timerTick);
 	TimerA0_start();
@@ -126,12 +133,11 @@ int main()
 		if (cliReady)
 		{
 			UartA0_write("\r\n");
-			(void)basicHandleCli(cliLine);
+			// (void)basicHandleCli(cliLine);
 
 			cliReady = 0;
 			cliLen = 0;
 			cliPrinted = 0;
-			UartA0_write("> ");
 		}
 	}
 }
