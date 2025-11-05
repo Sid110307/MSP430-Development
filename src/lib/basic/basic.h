@@ -10,6 +10,7 @@ void basicInit(const char* program);
 void basicRun();
 void basicList();
 int basicFinished();
+int basicHandleCli(const char* line);
 
 char basicGetVariable(unsigned int varNum);
 void basicSetVariable(unsigned int varNum, char value);

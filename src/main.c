@@ -1,5 +1,4 @@
 #include <msp430.h>
-#include <string.h>
 
 #include "include/gpio.h"
 #include "include/timer.h"
@@ -8,60 +7,9 @@
 
 static GpioPin led;
 
+static char cliLine[CLI_MAX];
 static volatile unsigned char cliReady = 0;
 static volatile unsigned int cliLen = 0;
-
-static char cliLine[CLI_MAX];
-static char basicBuffer[BASIC_BUF_SIZE];
-
-static void cliHandler()
-{
-	static unsigned int basicLen = 0;
-
-	if (strcmp(cliLine, "run") == 0)
-	{
-		if (basicLen == 0)
-		{
-			UartA0_writeSync("No program loaded.\r\n");
-			return;
-		}
-
-		basicBuffer[basicLen] = '\0';
-		basicInit(basicBuffer);
-		do basicRun(); while (!basicFinished());
-
-		UartA0_writeSync("\r\nProgram finished.\r\n");
-	}
-	else if (strcmp(cliLine, "clear") == 0)
-	{
-		basicLen = 0;
-		basicBuffer[0] = '\0';
-
-		UartA0_writeSync("Program cleared.\r\n");
-	}
-	else if (strcmp(cliLine, "list") == 0)
-	{
-		if (basicLen == 0) UartA0_writeSync("No program loaded.\r\n");
-		else basicList();
-	}
-	else if (cliLine[0] == '\0') UartA0_writeSync("\r\n");
-	else
-	{
-		const unsigned int len = strlen(cliLine);
-		if (basicLen + len + 2 >= BASIC_BUF_SIZE)
-		{
-			UartA0_writeSync("Program too long.\r\n");
-			return;
-		}
-
-		strcpy(&basicBuffer[basicLen], cliLine);
-		basicLen += len;
-
-		basicBuffer[basicLen++] = '\r';
-		basicBuffer[basicLen++] = '\n';
-		basicBuffer[basicLen] = '\0';
-	}
-}
 
 static void uartRx(const char c)
 {
@@ -178,7 +126,7 @@ int main()
 		if (cliReady)
 		{
 			UartA0_write("\r\n");
-			cliHandler();
+			(void)basicHandleCli(cliLine);
 
 			cliReady = 0;
 			cliLen = 0;

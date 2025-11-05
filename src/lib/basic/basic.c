@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "../../include/uart.h"
 #include "basic.h"
 #include "tokenizer.h"
@@ -15,6 +17,9 @@ struct LineIndexEntry
 
 static const char* programPtr;
 static char buffer[CLI_MAX];
+
+static char basicBuffer[BASIC_BUF_SIZE];
+static unsigned int basicBufferLen = 0;
 
 static struct ForState forStack[MAX_FOR_STACK_DEPTH];
 static unsigned int forStackPtr;
@@ -89,7 +94,7 @@ static void indexAdd(const int lineNum, const char* sourcePos)
 	}
 }
 
-static int nextLineAfter(int curr, const char** outPos)
+static int nextLineAfter(const int curr, const char** outPos)
 {
 	int found = 0;
 	int best = 0x7FFF;
@@ -130,6 +135,21 @@ static void basicAbort()
 {
 	printStr("BASIC ABORT\r\n");
 	ended = 1;
+}
+
+static int programAppendLine(const char* line)
+{
+	const unsigned int lineLen = strlen(line);
+	if (basicBufferLen + lineLen + 2 >= BASIC_BUF_SIZE) return 0;
+
+	memcpy(&basicBuffer[basicBufferLen], line, lineLen);
+	basicBufferLen += lineLen;
+
+	basicBuffer[basicBufferLen++] = '\r';
+	basicBuffer[basicBufferLen++] = '\n';
+	basicBuffer[basicBufferLen] = '\0';
+
+	return 1;
 }
 
 void basicInit(const char* program)
@@ -531,6 +551,47 @@ void basicList()
 }
 
 int basicFinished() { return ended || tokenizerFinished(); }
+
+int basicHandleCli(const char* line)
+{
+	if (strcmp(line, "run") == 0)
+	{
+		if (basicBufferLen == 0)
+		{
+			printStr("No program loaded.\r\n");
+			return 1;
+		}
+
+		basicInit(basicBuffer);
+		do basicRun(); while (!basicFinished());
+
+		printStr("\r\nProgram finished.\r\n");
+	}
+	else if (strcmp(line, "clear") == 0)
+	{
+		basicBufferLen = 0;
+		basicBuffer[0] = '\0';
+
+		printStr("Program cleared.\r\n");
+	}
+	else if (strcmp(line, "list") == 0)
+	{
+		if (basicBufferLen == 0)
+		{
+			printStr("No program loaded.\r\n");
+			return 1;
+		}
+		basicList();
+	}
+	else if (line[0] == '\0') printStr("\r\n");
+	else if (!programAppendLine(line))
+	{
+		printStr("Program too long.\r\n");
+		return 1;
+	}
+
+	return 0;
+}
 
 void basicSetVariable(const unsigned int varNum, const char value)
 {
