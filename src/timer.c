@@ -12,6 +12,7 @@ void TimerA0_init(const unsigned int interval, const unsigned int divider, const
 	TA0CCTL0 = 0;
 
 	TA0CCR0 = interval > 0 ? interval - 1 : 0;
+	TA0CCTL1 = OUTMOD_7;
 	TA0CCTL0 = CCIE;
 	TA0CCTL0 &= ~CCIFG;
 

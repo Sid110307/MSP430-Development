@@ -2,12 +2,12 @@
 #include "include/gpio.h"
 
 static int mapPort(const unsigned char port, volatile unsigned char** dir, volatile unsigned char** out,
-                   volatile const unsigned char** in, volatile unsigned char** ren
-#if defined(P1SEL) && defined(P1SEL2)
-                   , volatile unsigned char **sel, volatile unsigned char** sel2
-#endif
-)
+                   volatile const unsigned char** in, volatile unsigned char** ren, volatile unsigned char** sel,
+                   volatile unsigned char** sel2)
 {
+	*sel = 0;
+	*sel2 = 0;
+
 	switch (port)
 	{
 		case 1:
@@ -15,20 +15,18 @@ static int mapPort(const unsigned char port, volatile unsigned char** dir, volat
 			*out = &P1OUT;
 			*in = &P1IN;
 			*ren = &P1REN;
-#if defined(P1SEL) && defined(P1SEL2)
 			*sel = &P1SEL;
 			*sel2 = &P1SEL2;
-#endif
+
 			return 0;
 		case 2:
 			*dir = &P2DIR;
 			*out = &P2OUT;
 			*in = &P2IN;
 			*ren = &P2REN;
-#if defined(P2SEL) && defined(P2SEL2)
 			*sel = &P2SEL;
 			*sel2 = &P2SEL2;
-#endif
+
 			return 0;
 		default:
 			return -1;
@@ -39,33 +37,31 @@ int GpioPin_init(GpioPin* pin, unsigned char port, const unsigned char bit)
 {
 	if (!pin) return -1;
 
-	volatile unsigned char *dir, *out, *ren;
+	volatile unsigned char *dir, *out, *ren, *sel, *sel2;
 	volatile const unsigned char* in;
 
-#if defined(P1SEL) && defined(P1SEL2)
-	volatile unsigned char *sel, *sel2;
 	if (mapPort(port, &dir, &out, &in, &ren, &sel, &sel2) != 0) return -1;
-	pin->GpioSel = sel;
-	pin->GpioSel2 = sel2;
-#else
-	if (mapPort(port, &dir, &out, &in, &ren) != 0) return -1;
-#endif
-
 	pin->GpioDir = dir;
 	pin->GpioOut = out;
 	pin->GpioIn = in;
 	pin->GpioRen = ren;
+	pin->GpioSel = sel;
+	pin->GpioSel2 = sel2;
 	pin->bit = bit;
 
 	return 0;
 }
 
-void GpioPin_useGPIO(GpioPin* pin)
+void GpioPin_useGPIO(const GpioPin* pin)
 {
-#if defined(P1SEL) && defined(P1SEL2)
-	*(pin->GpioSel) &= ~(pin->bit);
-	*(pin->GpioSel2) &= ~(pin->bit);
-#endif
+	if (pin->GpioSel) *(pin->GpioSel) &= ~(pin->bit);
+	if (pin->GpioSel2) *(pin->GpioSel2) &= ~(pin->bit);
+}
+
+void GpioPin_useTimerA0(const GpioPin* pin)
+{
+	if (pin->GpioSel) *(pin->GpioSel) |= pin->bit;
+	if (pin->GpioSel2) *(pin->GpioSel2) &= ~pin->bit;
 }
 
 void GpioPin_setDir(const GpioPin* pin, const GpioDir dir)

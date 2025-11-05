@@ -3,12 +3,11 @@
 #include "include/gpio.h"
 #include "include/timer.h"
 #include "include/uart.h"
-
-// #include "lib/basic/basic.h"
+#include "lib/pwm/pwm.h"
 
 #define CLI_MAX 32
 
-static GpioPin led;
+static GpioPin led1, led2;
 
 static char cliLine[CLI_MAX];
 static volatile unsigned char cliReady = 0;
@@ -61,19 +60,19 @@ static void timerTick()
 		case 0:
 			if (count >= numTimes)
 			{
-				GpioPin_write(&led, 0);
+				GpioPin_write(&led1, 0);
 				state = 255;
 
 				return;
 			}
 
-			GpioPin_write(&led, 1);
+			GpioPin_write(&led1, 1);
 			rem = onTime;
 			state = 1;
 
 			break;
 		case 1:
-			GpioPin_write(&led, 0);
+			GpioPin_write(&led1, 0);
 			rem = offTime;
 			state = 0;
 			count++;
@@ -94,20 +93,25 @@ int main()
 		DCOCTL = CALDCO_1MHZ;
 	}
 
-	GpioPin_init(&led, 1, BIT0);
-	GpioPin_useGPIO(&led);
-	GpioPin_setDir(&led, GpioDir_Output);
-	GpioPin_write(&led, 0);
-
 	UartA0_init();
 	UartA0_setCallback(uartRx);
-	UartA0_write("MSP430 Ready!\r\n");
+
+	GpioPin_init(&led1, 1, BIT0);
+	GpioPin_useGPIO(&led1);
+	GpioPin_setDir(&led1, GpioDir_Output);
+	GpioPin_write(&led1, 0);
+
+	GpioPin_init(&led2, 1, BIT6);
+	GpioPin_useTimerA0(&led2);
+	GpioPin_setDir(&led2, GpioDir_Output);
+	GpioPin_write(&led2, 0);
 
 	TimerA0_init(125, ID_3, &timerTick);
 	TimerA0_start();
 
 	static volatile unsigned int cliPrinted = 0;
 	__enable_interrupt();
+	UartA0_write("MSP430 Ready!\r\n");
 
 	while (1)
 	{
@@ -133,7 +137,7 @@ int main()
 		if (cliReady)
 		{
 			UartA0_write("\r\n");
-			// (void)basicHandleCli(cliLine);
+			pwmHandleCli(cliLine);
 
 			cliReady = 0;
 			cliLen = 0;

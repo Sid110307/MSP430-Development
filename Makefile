@@ -9,7 +9,8 @@ LINKCMD     := $(CCS_INCLUDE)/lnk_msp430g2553.cmd
 SRC_DIR     := src
 BIN_DIR     := bin
 OBJS        := $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/*.c)) \
-               $(patsubst $(SRC_DIR)/lib/basic/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/lib/basic/*.c))
+               $(patsubst $(SRC_DIR)/lib/basic/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/lib/basic/*.c)) \
+               $(patsubst $(SRC_DIR)/lib/pwm/%.c,$(BIN_DIR)/%.obj,$(wildcard $(SRC_DIR)/lib/pwm/*.c))
 
 OUT         := $(BIN_DIR)/firmware.out
 HEX         := $(BIN_DIR)/firmware.txt
@@ -40,7 +41,7 @@ all: $(HEX)
 $(BIN_DIR):
 	if not exist "$(subst /,\,$(BIN_DIR))" mkdir "$(subst /,\,$(BIN_DIR))"
 
-vpath %.c $(SRC_DIR) $(SRC_DIR)/lib/basic
+vpath %.c $(SRC_DIR) $(SRC_DIR)/lib/basic $(SRC_DIR)/lib/pwm
 $(BIN_DIR)/%.obj: %.c | $(BIN_DIR)
 	if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))"
 	$(CC) $(CFLAGS) --preproc_with_compile --obj_directory=$(BIN_DIR) --asm_directory=$(BIN_DIR) -c $< -o $@
