@@ -3,7 +3,6 @@
 #include "include/gpio.h"
 #include "include/timer.h"
 #include "include/uart.h"
-#include "lib/pwm/pwm.h"
 
 #define CLI_MAX 32
 
@@ -44,7 +43,7 @@ static void uartRx(const char c)
 
 static void timerTick()
 {
-	static const unsigned int onTime = 500, offTime = 500, numTimes = 3;
+	static const unsigned int onTime = 500, offTime = 500, numTimes = 2;
 	static unsigned char state = 0;
 	static unsigned int rem = 0, count = 0;
 
@@ -137,7 +136,6 @@ int main()
 		if (cliReady)
 		{
 			UartA0_write("\r\n");
-			pwmHandleCli(cliLine);
 
 			cliReady = 0;
 			cliLen = 0;
